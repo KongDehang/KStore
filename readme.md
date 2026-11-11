@@ -8,6 +8,14 @@
 
 ---
 
+## 下载
+
+安装包见 [Releases · v1.0.0](https://github.com/KongDehang/KStore/releases/tag/v1.0.0)，文件为 `KKDetain-1.0.0.apk`（Android 8.0 及以上，约 11 MB）。
+
+下载后允许「安装未知来源应用」即可安装。该包使用 debug 密钥签名，仅供个人安装体验，不适合上架应用商店。
+
+---
+
 ## 功能
 
 | # | 能力 | 说明 |
@@ -90,12 +98,13 @@ app/src/main/java/com/kk/detain
 用 Android Studio 直接打开项目即可，或命令行：
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleDebug    # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease  # app/build/outputs/apk/release/app-release.apk
 ```
 
-生成的 APK：`app/build/outputs/apk/debug/app-debug.apk`。
+`release` 构建使用本机 debug 密钥签名（见 [app/build.gradle.kts](app/build.gradle.kts)），因此开箱即可安装，无需在仓库里保存 keystore。
 
-本次工作区另外构建了一份调试包：`dist/KKDetain-1.0.0-debug.apk`（debug 签名，可直接安装体验；APK 属于构建产物，默认不提交到 Git）。
+APK 属于构建产物，默认不提交到 Git，通过 Release 分发。
 
 > `local.properties` 属于本机配置，不随项目提交；Android Studio 首次同步时会自动生成 SDK 路径。
 

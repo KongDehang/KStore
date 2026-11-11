@@ -24,6 +24,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Personal sideload builds: sign with the debug key so `assembleRelease` stays installable
+            // without shipping a keystore in the repo.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
