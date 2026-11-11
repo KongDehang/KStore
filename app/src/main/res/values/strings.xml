@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">静水</string>
+    <string name="accessibility_service_label">静水 · 应用守护</string>
+    <string name="accessibility_service_description">开启后，静水会在你打开已守护的应用时出现，帮你把注意力收回来。静水不会读取屏幕内容，也不会收集或上传任何数据。</string>
+</resources>

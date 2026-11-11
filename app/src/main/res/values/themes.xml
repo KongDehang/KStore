@@ -1,0 +1,15 @@
+<resources>
+    <style name="Theme.Detain" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/mist</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <style name="Theme.Detain.Lock" parent="Theme.Detain">
+        <item name="android:windowBackground">@color/lock_bg</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+</resources>
