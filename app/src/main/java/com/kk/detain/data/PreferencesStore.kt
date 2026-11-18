@@ -6,18 +6,15 @@ import com.kk.detain.domain.ScheduleCalculator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.Instant
-import java.time.ZoneId
-import java.time.temporal.WeekFields
 
-const val WEEKLY_UNLOCK_ALLOWANCE = 2
+const val MONTHLY_UNLOCK_ALLOWANCE = 2
 
 data class QuotaState(
     val used: Int,
-    val weekKey: String,
+    val monthKey: String,
 ) {
-    val remaining: Int get() = (WEEKLY_UNLOCK_ALLOWANCE - used).coerceAtLeast(0)
-    val resetAt: Long get() = ScheduleCalculator.nextWeekReset()
+    val remaining: Int get() = (MONTHLY_UNLOCK_ALLOWANCE - used).coerceAtLeast(0)
+    val resetAt: Long get() = ScheduleCalculator.nextMonthReset()
 }
 
 class PreferencesStore(context: Context) {
@@ -41,9 +38,9 @@ class PreferencesStore(context: Context) {
             _quota.value = current
             return false
         }
-        val next = QuotaState(current.used + 1, current.weekKey)
+        val next = QuotaState(current.used + 1, current.monthKey)
         prefs.edit()
-            .putString(KEY_WEEK, next.weekKey)
+            .putString(KEY_MONTH, next.monthKey)
             .putInt(KEY_USED, next.used)
             .apply()
         _quota.value = next
@@ -56,26 +53,25 @@ class PreferencesStore(context: Context) {
     }
 
     private fun loadQuota(): QuotaState {
-        val weekKey = currentWeekKey()
-        val storedWeek = prefs.getString(KEY_WEEK, null)
-        if (storedWeek != weekKey) {
-            prefs.edit().putString(KEY_WEEK, weekKey).putInt(KEY_USED, 0).apply()
-            return QuotaState(used = 0, weekKey = weekKey)
+        val monthKey = ScheduleCalculator.monthKey()
+        val storedMonth = prefs.getString(KEY_MONTH, null)
+        if (storedMonth != monthKey) {
+            prefs.edit()
+                .putString(KEY_MONTH, monthKey)
+                .putInt(KEY_USED, 0)
+                .remove(KEY_LEGACY_WEEK)
+                .apply()
+            return QuotaState(used = 0, monthKey = monthKey)
         }
-        val used = prefs.getInt(KEY_USED, 0).coerceIn(0, WEEKLY_UNLOCK_ALLOWANCE)
-        return QuotaState(used = used, weekKey = weekKey)
-    }
-
-    private fun currentWeekKey(now: Long = System.currentTimeMillis()): String {
-        val date = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
-        val fields = WeekFields.ISO
-        return "${date.get(fields.weekBasedYear())}-W${date.get(fields.weekOfWeekBasedYear())}"
+        val used = prefs.getInt(KEY_USED, 0).coerceIn(0, MONTHLY_UNLOCK_ALLOWANCE)
+        return QuotaState(used = used, monthKey = monthKey)
     }
 
     companion object {
-        const val WEEKLY_ALLOWANCE = WEEKLY_UNLOCK_ALLOWANCE
+        const val MONTHLY_ALLOWANCE = MONTHLY_UNLOCK_ALLOWANCE
         private const val PREFS_NAME = "detain_prefs"
-        private const val KEY_WEEK = "quota_week"
+        private const val KEY_MONTH = "quota_month"
+        private const val KEY_LEGACY_WEEK = "quota_week"
         private const val KEY_USED = "quota_used"
         private const val KEY_BUBBLES = "bubbles_enabled"
     }

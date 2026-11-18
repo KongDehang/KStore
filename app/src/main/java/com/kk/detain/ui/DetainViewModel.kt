@@ -1,8 +1,6 @@
 package com.kk.detain.ui
 
 import android.app.Application
-import android.content.ComponentName
-import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,8 +11,9 @@ import com.kk.detain.data.MonitoredApp
 import com.kk.detain.domain.InstalledApp
 import com.kk.detain.domain.InstalledAppsLoader
 import com.kk.detain.domain.ScheduleCalculator
-import com.kk.detain.service.DetainAccessibilityService
+import com.kk.detain.service.isAccessibilityEnabled
 import com.kk.detain.usage.UsageReport
+import com.kk.detain.ui.isIgnoringBatteryOptimizations
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,8 +26,9 @@ data class PermissionStatus(
     val usageAccess: Boolean = false,
     val accessibility: Boolean = false,
     val notifications: Boolean = false,
+    val batteryUnrestricted: Boolean = false,
 ) {
-    val coreReady: Boolean get() = usageAccess && accessibility
+    val coreReady: Boolean get() = usageAccess && accessibility && batteryUnrestricted
 }
 
 class DetainViewModel(application: Application) : AndroidViewModel(application) {
@@ -84,16 +84,11 @@ class DetainViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshPermissions() {
         val context = getApplication<Application>()
-        val expected = ComponentName(context, DetainAccessibilityService::class.java).flattenToString()
-        val enabledServices = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-        ).orEmpty()
-        val accessibility = enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
         _permissions.value = PermissionStatus(
             usageAccess = container.usage.hasUsageAccess(),
-            accessibility = accessibility,
+            accessibility = isAccessibilityEnabled(context),
             notifications = NotificationManagerCompat.from(context).areNotificationsEnabled(),
+            batteryUnrestricted = isIgnoringBatteryOptimizations(context),
         )
         preferences.refreshQuota()
     }
@@ -185,6 +180,4 @@ class DetainViewModel(application: Application) : AndroidViewModel(application) 
     fun setBubblesEnabled(enabled: Boolean) {
         preferences.setBubblesEnabled(enabled)
     }
-
-    fun weeklyResetAt(): Long = ScheduleCalculator.nextWeekReset()
 }

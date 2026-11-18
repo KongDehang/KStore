@@ -47,7 +47,7 @@ data class LockSession(
 )
 
 /**
- * A temporary "free pass" for an app. Created when the user spends a weekly forced-unlock
+ * A temporary "free pass" for an app. Created when the user spends a monthly forced-unlock
  * credit or chooses to use an app freely for a while.
  */
 @Entity(tableName = "exemptions")

@@ -190,7 +190,7 @@ class LockActivity : ComponentActivity() {
                 finish()
             } else {
                 quotaRemaining = 0
-                Toast.makeText(this@LockActivity, "本周的强制解锁机会已经用完了。", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@LockActivity, "本月的强制解锁机会已经用完了。", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +53,7 @@ import com.kk.detain.domain.ActiveLock
 import com.kk.detain.domain.Tips
 import com.kk.detain.domain.hasSchedule
 import com.kk.detain.domain.resolveActiveLock
+import com.kk.detain.service.GuardDiagnostics
 import com.kk.detain.ui.DetainViewModel
 import com.kk.detain.ui.PermissionStatus
 import com.kk.detain.ui.components.AppIcon
@@ -68,6 +70,7 @@ import com.kk.detain.ui.formatRemainingShort
 import com.kk.detain.ui.formatWeekday
 import com.kk.detain.ui.greetingForHour
 import com.kk.detain.ui.openAccessibilitySettings
+import com.kk.detain.ui.requestIgnoreBatteryOptimizations
 import com.kk.detain.ui.theme.Ink
 import com.kk.detain.ui.theme.InkFaint
 import com.kk.detain.ui.theme.InkSoft
@@ -97,6 +100,17 @@ fun HomeScreen(
     val usage by vm.usageReport.collectAsStateWithLifecycle()
 
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val serviceConnected by GuardDiagnostics.serviceConnected.collectAsStateWithLifecycle()
+    var disconnected by remember { mutableStateOf(false) }
+    // A freshly started process reconnects within a moment; only warn once it stays down.
+    LaunchedEffect(serviceConnected, permissions.accessibility) {
+        if (permissions.accessibility && !serviceConnected) {
+            delay(2_500L)
+            disconnected = true
+        } else {
+            disconnected = false
+        }
+    }
     LaunchedEffect(Unit) {
         while (true) {
             now = System.currentTimeMillis()
@@ -129,8 +143,14 @@ fun HomeScreen(
         item {
             QuotaCard(remaining = quota.remaining)
         }
-        if (!permissions.coreReady) {
-            item { PermissionNudge(permissions = permissions, onOpenSettings = onOpenSettings) }
+        if (!permissions.coreReady || disconnected) {
+            item {
+                PermissionNudge(
+                    permissions = permissions,
+                    disconnected = disconnected,
+                    onOpenSettings = onOpenSettings,
+                )
+            }
         }
         if (activeLocks.isNotEmpty()) {
             item { SectionHeader("正在替你守住") }
@@ -302,10 +322,10 @@ private fun QuotaCard(remaining: Int) {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("本周克制额度", style = MaterialTheme.typography.titleMedium, color = Ink)
+                Text("本月克制额度", style = MaterialTheme.typography.titleMedium, color = Ink)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "强制解锁还剩 $remaining 次 · 每周一 00:00 重置",
+                    text = "强制解锁还剩 $remaining 次 · 每月 1 日 00:00 重置",
                     style = MaterialTheme.typography.bodySmall,
                     color = InkSoft,
                 )
@@ -437,8 +457,34 @@ private fun AppRow(
 private data class HomeStatusSpec(val label: String, val container: Color, val content: Color)
 
 @Composable
-private fun PermissionNudge(permissions: PermissionStatus, onOpenSettings: () -> Unit) {
+private fun PermissionNudge(
+    permissions: PermissionStatus,
+    disconnected: Boolean,
+    onOpenSettings: () -> Unit,
+) {
     val context = LocalContext.current
+    val blocking = disconnected || !permissions.accessibility
+    val title = when {
+        disconnected -> "守护已断开"
+        !permissions.accessibility -> "拦截未开启：无障碍服务"
+        !permissions.usageAccess -> "使用统计未开启"
+        else -> "守护容易被系统冻结"
+    }
+    val body = when {
+        disconnected ->
+            "系统把无障碍服务停掉了，现在锁定页不会出现。点一下重新开启就能恢复；顺便把电池优化设为「不限制」，可以减少再次发生。"
+        !permissions.accessibility ->
+            "没有它，静水无法知道你把哪个应用打开了，锁定页也不会出现。开启后回来，重新添加应用即可。"
+        !permissions.usageAccess ->
+            "开启使用情况访问权限，才能看到每个应用的真实用时；不影响拦截。"
+        else ->
+            "电池优化会让系统在后台冻结静水，拦截和计时会悄悄停掉。设为「不限制」后可以长期稳定运行。"
+    }
+    val action = when {
+        disconnected || !permissions.accessibility -> "开启无障碍"
+        !permissions.usageAccess -> "去设置"
+        else -> "关闭电池优化"
+    }
     SoftCard(color = Color(0xFFFFF8EE)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -458,21 +504,13 @@ private fun PermissionNudge(permissions: PermissionStatus, onOpenSettings: () ->
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = if (!permissions.accessibility) {
-                        "拦截未开启：无障碍服务"
-                    } else {
-                        "使用统计未开启"
-                    },
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (!permissions.accessibility) Color(0xFFB4573A) else Ink,
+                    color = if (blocking) Color(0xFFB4573A) else Ink,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = if (!permissions.accessibility) {
-                        "没有它，静水无法知道你把哪个应用打开了，锁定页也不会出现。开启后回来，重新添加应用即可。"
-                    } else {
-                        "开启使用情况访问权限，才能看到每个应用的真实用时；不影响拦截。"
-                    },
+                    text = body,
                     style = MaterialTheme.typography.bodySmall,
                     color = InkSoft,
                 )
@@ -481,14 +519,14 @@ private fun PermissionNudge(permissions: PermissionStatus, onOpenSettings: () ->
         Spacer(Modifier.height(10.dp))
         TextButton(
             onClick = {
-                if (!permissions.accessibility) {
-                    openAccessibilitySettings(context)
-                } else {
-                    onOpenSettings()
+                when {
+                    disconnected || !permissions.accessibility -> openAccessibilitySettings(context)
+                    !permissions.usageAccess -> onOpenSettings()
+                    else -> requestIgnoreBatteryOptimizations(context)
                 }
             },
         ) {
-            Text(if (!permissions.accessibility) "开启无障碍" else "去设置")
+            Text(action)
             Icon(Icons.Rounded.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
         }
     }

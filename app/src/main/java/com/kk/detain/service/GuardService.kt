@@ -31,6 +31,9 @@ class GuardService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var loop: Job? = null
     private lateinit var repository: DetainRepository
+    private val startedAt = System.currentTimeMillis()
+    private var disconnectedChecks = 0
+    private var connectionLostNotified = false
 
     override fun onCreate() {
         super.onCreate()
@@ -61,11 +64,57 @@ class GuardService : Service() {
     }
 
     private suspend fun refresh() {
+        if (checkConnection()) return
         val (title, text) = buildStatus()
         val notification = Notifications.guardNotification(this, title, text)
+        notify(Notifications.GUARD_NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * An enabled accessibility service that never reports itself connected means the
+     * system stopped delivering events: the guard is silently dead until it is toggled.
+     */
+    private suspend fun checkConnection(): Boolean {
+        val connected = GuardDiagnostics.serviceConnected.value
+        val enabled = isAccessibilityEnabled(this)
+        val warmingUp = System.currentTimeMillis() - startedAt < CONNECTION_GRACE_MS
+
+        if (!enabled || connected || warmingUp) {
+            disconnectedChecks = 0
+            clearConnectionNotice()
+            return false
+        }
+
+        disconnectedChecks++
+        if (disconnectedChecks < DISCONNECTED_CHECKS) return false
+        if (!connectionLostNotified) {
+            connectionLostNotified = true
+            notify(Notifications.CONNECTION_LOST_ID, Notifications.connectionLostNotification(this))
+        }
+        notify(
+            Notifications.GUARD_NOTIFICATION_ID,
+            Notifications.guardNotification(
+                this,
+                "静水暂停了",
+                "无障碍服务已断开，点按重新开启后守护才会继续。",
+            ),
+        )
+        return true
+    }
+
+    private suspend fun clearConnectionNotice() {
+        if (!connectionLostNotified) return
+        connectionLostNotified = false
+        withContext(Dispatchers.Main) {
+            getSystemService(NotificationManager::class.java)
+                ?.cancel(Notifications.CONNECTION_LOST_ID)
+        }
+    }
+
+    private suspend fun notify(id: Int, notification: android.app.Notification) {
         withContext(Dispatchers.Main) {
             val manager = getSystemService(NotificationManager::class.java) ?: return@withContext
-            manager.notify(Notifications.GUARD_NOTIFICATION_ID, notification)
+            manager.notify(id, notification)
         }
     }
 
@@ -93,6 +142,12 @@ class GuardService : Service() {
     }
 
     companion object {
+        /** 20 s per check, so three misses mean roughly a minute without a connection. */
+        private const val DISCONNECTED_CHECKS = 3
+
+        /** Give the accessibility service time to bind after a process start. */
+        private const val CONNECTION_GRACE_MS = 90_000L
+
         fun start(context: Context) {
             val intent = Intent(context, GuardService::class.java)
             runCatching { ContextCompat.startForegroundService(context, intent) }

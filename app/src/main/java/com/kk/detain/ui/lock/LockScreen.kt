@@ -424,9 +424,9 @@ private fun LockedContent(
             ) {
                 Text(
                     text = if (quotaRemaining > 0) {
-                        "强制解锁 · 本周还剩 $quotaRemaining 次"
+                        "强制解锁 · 本月还剩 $quotaRemaining 次"
                     } else {
-                        "本周强制解锁机会已用完"
+                        "本月强制解锁机会已用完"
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = if (quotaRemaining > 0) InkSoft else InkFaint,
@@ -605,7 +605,7 @@ private fun ForceUnlockDialog(
         text = {
             Column {
                 Text(
-                    text = "这会用掉 1 次本周强制解锁机会（还剩 $remaining 次）。解锁后，应用会一直开放到 ${formatTimeOfDay(unlockAt)}。",
+                    text = "这会用掉 1 次本月强制解锁机会（还剩 $remaining 次）。解锁后，应用会一直开放到 ${formatTimeOfDay(unlockAt)}。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = InkSoft,
                 )

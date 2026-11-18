@@ -131,6 +131,25 @@ class ScheduleCalculatorTest {
     }
 
     @Test
+    fun nextMonthResetIsTheFirstDayOfNextMonth() {
+        assertEquals(
+            at(2024, 7, 1, 0),
+            ScheduleCalculator.nextMonthReset(at(2024, 6, 12, 15), zone),
+        )
+        assertEquals(
+            at(2025, 1, 1, 0),
+            ScheduleCalculator.nextMonthReset(at(2024, 12, 31, 23, 59), zone),
+        )
+    }
+
+    @Test
+    fun monthKeyFollowsTheCalendarMonth() {
+        assertEquals("2024-06", ScheduleCalculator.monthKey(at(2024, 6, 10, 11), zone))
+        assertEquals("2024-12", ScheduleCalculator.monthKey(at(2024, 12, 31, 23, 59), zone))
+        assertEquals("2025-01", ScheduleCalculator.monthKey(at(2025, 1, 1, 0), zone))
+    }
+
+    @Test
     fun timedSessionLocksTheApp() {
         val now = at(2024, 6, 10, 11)
         val app = MonitoredApp(packageName = "com.example.app", label = "示例")

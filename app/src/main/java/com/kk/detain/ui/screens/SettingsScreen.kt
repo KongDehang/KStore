@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
+import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NotificationsNone
@@ -61,6 +62,7 @@ import com.kk.detain.ui.openAccessibilitySettings
 import com.kk.detain.ui.openAppDetailsSettings
 import com.kk.detain.ui.openNotificationSettings
 import com.kk.detain.ui.openUsageAccessSettings
+import com.kk.detain.ui.requestIgnoreBatteryOptimizations
 import com.kk.detain.ui.theme.Ink
 import com.kk.detain.ui.theme.InkFaint
 import com.kk.detain.ui.theme.InkSoft
@@ -111,6 +113,14 @@ fun SettingsScreen(vm: DetainViewModel) {
                     description = "读取每个守护应用的真实使用时长。",
                     granted = permissions.usageAccess,
                     onRequest = { openUsageAccessSettings(context) },
+                )
+                HorizontalDivider(color = OutlineFaint)
+                PermissionRow(
+                    icon = Icons.Rounded.BatteryFull,
+                    title = "电池优化",
+                    description = "系统把静水冻结后，无障碍服务会悄悄失效。设为「不限制」更稳。",
+                    granted = permissions.batteryUnrestricted,
+                    onRequest = { requestIgnoreBatteryOptimizations(context) },
                 )
                 HorizontalDivider(color = OutlineFaint)
                 PermissionRow(
@@ -189,10 +199,10 @@ fun SettingsScreen(vm: DetainViewModel) {
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                        Text("本周强制解锁", style = MaterialTheme.typography.titleMedium, color = Ink)
+                        Text("本月强制解锁", style = MaterialTheme.typography.titleMedium, color = Ink)
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "每周 2 次 · 周一 00:00 重置",
+                            text = "每月 2 次 · 1 日 00:00 重置",
                             style = MaterialTheme.typography.bodySmall,
                             color = InkSoft,
                         )
@@ -275,7 +285,7 @@ fun SettingsScreen(vm: DetainViewModel) {
             SoftCard {
                 StepRow(number = "1", text = "添加一个最想少刷一会的应用。")
                 StepRow(number = "2", text = "为它设置每周的锁定时段，或者只在打开前提醒。")
-                StepRow(number = "3", text = "到时间自动解开。想提前结束，只能用每周那两次机会。")
+                StepRow(number = "3", text = "到时间自动解开。想提前结束，只能用每月那两次机会。")
             }
         }
         item { SectionHeader("关于") }
@@ -369,6 +379,11 @@ private fun DiagnosticsCard(
             ok = permissions.accessibility,
         )
         DiagnosticRow(
+            label = "电池优化",
+            value = if (permissions.batteryUnrestricted) "不受限制" else "可能被系统冻结",
+            ok = permissions.batteryUnrestricted,
+        )
+        DiagnosticRow(
             label = "最近检测到的守护应用",
             value = lastForeground?.let { "${formatTimeWithSeconds(it.time)} · ${it.packageName}" }
                 ?: "还没有事件",
@@ -384,7 +399,7 @@ private fun DiagnosticsCard(
         if (permissions.accessibility && !serviceConnected) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "无障碍已授权但服务未连接：请到系统设置里把「静水 · 应用守护」关闭再打开，或重启手机后重试。",
+                text = "无障碍已授权但服务未连接：系统把静水的访问权限停掉了。到「无障碍」里把「静水 · 应用守护」关闭再打开即可恢复；顺便把电池优化设为「不限制」，能减少再次发生。",
                 style = MaterialTheme.typography.bodySmall,
                 color = Peach,
             )
@@ -463,6 +478,7 @@ private fun buildDiagnosticsText(
     )
     appendLine("无障碍授权：${permissions.accessibility}")
     appendLine("服务连接：$serviceConnected")
+    appendLine("电池优化不受限制：${permissions.batteryUnrestricted}")
     appendLine("使用统计授权：${permissions.usageAccess}")
     appendLine("通知授权：${permissions.notifications}")
     appendLine(

@@ -9,6 +9,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import java.util.Locale
 
 data class LockPeriod(val startAt: Long, val endAt: Long)
 
@@ -111,6 +112,24 @@ object ScheduleCalculator {
         val date = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
         return date.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
             .atStartOfDay(zone).toInstant().toEpochMilli()
+    }
+
+    fun nextMonthReset(
+        epochMillis: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Long {
+        val date = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
+        return date.withDayOfMonth(1).plusMonths(1)
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+    }
+
+    /** Stable key for the calendar month, used to reset the monthly unlock allowance. */
+    fun monthKey(
+        epochMillis: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String {
+        val date = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
+        return String.format(Locale.ROOT, "%04d-%02d", date.year, date.monthValue)
     }
 }
 

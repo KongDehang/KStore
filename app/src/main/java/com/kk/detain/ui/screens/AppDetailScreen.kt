@@ -222,7 +222,7 @@ fun AppDetailScreen(
     if (showDurationPicker) {
         DurationPickerDialog(
             title = "锁定多久？",
-            description = "到时间会自动解开。中途想要提前结束，需要使用本周的强制解锁机会。",
+            description = "到时间会自动解开。中途想要提前结束，需要使用本月的强制解锁机会。",
             initialMinutes = app.defaultLockMinutes,
             confirmLabel = { minutes -> "锁定 ${formatMinutesShort(minutes)}" },
             onDismiss = { showDurationPicker = false },
@@ -252,7 +252,7 @@ fun AppDetailScreen(
     if (showForceUnlockConfirm && lock != null) {
         ConfirmDialog(
             title = "确定要强制解锁吗？",
-            message = "会消耗 1 次本周强制解锁机会（还剩 ${quota.remaining} 次），应用会一直开放到 ${formatTimeOfDay(lock.endAt)}。",
+            message = "会消耗 1 次本月强制解锁机会（还剩 ${quota.remaining} 次），应用会一直开放到 ${formatTimeOfDay(lock.endAt)}。",
             confirmLabel = "解锁",
             onDismiss = { showForceUnlockConfirm = false },
             onConfirm = {
@@ -261,7 +261,7 @@ fun AppDetailScreen(
                     val message = if (granted) {
                         "已经解开，好好使用这段时间。"
                     } else {
-                        "本周的强制解锁机会已经用完了。"
+                        "本月的强制解锁机会已经用完了。"
                     }
                     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                 }
@@ -414,7 +414,7 @@ private fun ActiveLockDetailCard(
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "本周额度 $quotaRemaining/${com.kk.detain.data.PreferencesStore.WEEKLY_ALLOWANCE}",
+                text = "本月额度 $quotaRemaining/${com.kk.detain.data.PreferencesStore.MONTHLY_ALLOWANCE}",
                 style = MaterialTheme.typography.labelSmall,
                 color = InkFaint,
             )
