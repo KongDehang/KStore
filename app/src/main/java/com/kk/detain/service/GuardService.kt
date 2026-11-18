@@ -5,6 +5,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import com.kk.detain.DetainApp
 import com.kk.detain.data.DetainRepository
@@ -12,6 +13,7 @@ import com.kk.detain.domain.LockState
 import com.kk.detain.domain.ScheduleCalculator
 import com.kk.detain.ui.formatRemainingShort
 import com.kk.detain.ui.formatTimeOfDay
+import com.kk.detain.usage.UsageRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,21 +33,32 @@ class GuardService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var loop: Job? = null
     private lateinit var repository: DetainRepository
+    private lateinit var usage: UsageRepository
+    private lateinit var coordinator: LockCoordinator
     private val startedAt = System.currentTimeMillis()
     private var disconnectedChecks = 0
     private var connectionLostNotified = false
 
     override fun onCreate() {
         super.onCreate()
-        repository = DetainApp.container(this).repository
+        val container = DetainApp.container(this)
+        repository = container.repository
+        usage = container.usage
+        coordinator = container.coordinator
         startForeground(
             Notifications.GUARD_NOTIFICATION_ID,
             Notifications.guardNotification(this, "静水正在守护", "把时间还给生活"),
         )
         loop = scope.launch {
+            var tick = 0
             while (isActive) {
-                runCatching { refresh() }
-                delay(20_000L)
+                runCatching {
+                    pollForeground()
+                    // The status text is not worth a wake-up every 10 s.
+                    if (tick % 2 == 0) refresh()
+                }
+                tick++
+                delay(POLL_INTERVAL_MS)
             }
         }
     }
@@ -68,6 +81,17 @@ class GuardService : Service() {
         val (title, text) = buildStatus()
         val notification = Notifications.guardNotification(this, title, text)
         notify(Notifications.GUARD_NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Independent foreground check. Accessibility events are the fast path, but a service
+     * can stay bound while events silently stop arriving; usage stats keep the guard alive.
+     */
+    private suspend fun pollForeground() {
+        val power = getSystemService(PowerManager::class.java)
+        if (power != null && !power.isInteractive) return
+        val packageName = usage.foregroundPackage() ?: return
+        coordinator.onForegroundPolled(packageName)
     }
 
     /**
@@ -142,6 +166,9 @@ class GuardService : Service() {
     }
 
     companion object {
+        /** 10 s foreground poll; the status notification refreshes every other tick. */
+        private const val POLL_INTERVAL_MS = 10_000L
+
         /** 20 s per check, so three misses mean roughly a minute without a connection. */
         private const val DISCONNECTED_CHECKS = 3
 

@@ -1,6 +1,7 @@
 package com.kk.detain.usage
 
 import android.app.AppOpsManager
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
@@ -56,8 +57,31 @@ class UsageRepository(private val context: Context) {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    suspend fun todayMinutesFor(packageName: String): Int = withContext(Dispatchers.IO) {
-        if (!hasUsageAccess()) return@withContext 0
+    /**
+     * Last app that came to the foreground, read straight from usage events. This is an
+     * independent fallback for the accessibility window events: some ROMs keep the
+     * service bound while silently dropping events.
+     */
+    suspend fun foregroundPackage(now: Long = System.currentTimeMillis()): String? =
+        withContext(Dispatchers.IO) {
+            if (!hasUsageAccess()) return@withContext null
+            val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+                ?: return@withContext null
+            val events = runCatching { manager.queryEvents(now - 60_000L, now) }.getOrNull()
+                ?: return@withContext null
+            val event = UsageEvents.Event()
+            var latest: String? = null
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                @Suppress("DEPRECATION")
+                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    latest = event.packageName
+                }
+            }
+            latest
+        }
+
+    suspend fun todayMinutesFor(packageName: String): Int = withContext(Dispatchers.IO) {        if (!hasUsageAccess()) return@withContext 0
         val usageStatsManager =
             context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
                 ?: return@withContext 0

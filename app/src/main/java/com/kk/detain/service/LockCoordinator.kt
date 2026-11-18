@@ -76,6 +76,21 @@ class LockCoordinator(
         watch(packageName)
     }
 
+    /**
+     * Foreground app reported by the usage-stats poller. It keeps the guard working when
+     * the accessibility service stays bound but stops delivering window events.
+     */
+    fun onForegroundPolled(packageName: String) {
+        if (packageName == context.packageName || packageName in OVERLAY_PACKAGES) return
+        if (watchedPackage == packageName) {
+            // Same app: only make sure the heartbeat is still alive.
+            if (heartbeat?.isActive != true) startHeartbeat()
+            return
+        }
+        lastStateKey = null
+        watch(packageName)
+    }
+
     fun onScreenOff() {
         stopHeartbeat()
     }
@@ -84,14 +99,17 @@ class LockCoordinator(
         watchedPackage = packageName
         watchToken++
         evaluate(packageName, fromHeartbeat = false)
-        if (heartbeat?.isActive != true) {
-            heartbeat = scope.launch {
-                while (isActive) {
-                    delay(HEARTBEAT_MS)
-                    val current = watchedPackage ?: break
-                    if (LockActivity.isShowing) continue
-                    evaluate(current, fromHeartbeat = true)
-                }
+        startHeartbeat()
+    }
+
+    private fun startHeartbeat() {
+        if (heartbeat?.isActive == true) return
+        heartbeat = scope.launch {
+            while (isActive) {
+                delay(HEARTBEAT_MS)
+                val current = watchedPackage ?: break
+                if (LockActivity.isShowing) continue
+                evaluate(current, fromHeartbeat = true)
             }
         }
     }
@@ -125,6 +143,10 @@ class LockCoordinator(
                     return@runCatching
                 }
                 lastStateKey = stateKey
+                Log.d(
+                    GuardDiagnostics.TAG,
+                    "$packageName -> $stateKey (heartbeat=$fromHeartbeat)",
+                )
                 if (!fromHeartbeat) GuardDiagnostics.noteForeground(packageName)
 
                 when (state) {

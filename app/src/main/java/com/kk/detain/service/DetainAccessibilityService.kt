@@ -38,6 +38,7 @@ class DetainAccessibilityService : AccessibilityService() {
             if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
             val packageName = event.packageName?.toString() ?: return
             lastPackage = packageName
+            Log.d(GuardDiagnostics.TAG, "window -> $packageName")
             DetainApp.container(this).coordinator.onForeground(packageName)
         } catch (error: Throwable) {
             Log.w(GuardDiagnostics.TAG, "failed to handle accessibility event", error)
